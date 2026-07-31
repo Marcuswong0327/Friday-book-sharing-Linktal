@@ -643,8 +643,8 @@ def law_meta(mode: str) -> list[tuple[str, str, str]]:
 def render_admin_page() -> None:
     st.markdown('<p class="page-title">Admin · User knowledge base</p>', unsafe_allow_html=True)
     st.markdown(
-        '<p class="page-pitch">Enter each attendee one by one. Their routine is stored in '
-        "<code>data/users.json</code> and fed to the AI when they pick their name.</p>",
+        '<p class="page-pitch">Enter each attendee one by one. Their routine is saved '
+        "and fed to the AI when they pick their name.</p>",
         unsafe_allow_html=True,
     )
 
@@ -891,7 +891,7 @@ def main() -> None:
         else:
             st.warning("Select your name to personalize the AI coach.")
             if not roster:
-                st.caption("No profiles loaded — check `data/users.json` or use Admin.")
+                st.caption("No profiles loaded — open Admin to add attendees.")
 
         st.markdown(
             '<p class="q-title">1. What do you want to build or break?</p>',
