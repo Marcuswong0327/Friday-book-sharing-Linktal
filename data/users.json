@@ -132,6 +132,13 @@
       "role": "Software Developer, Linktal (joined 1 year)",
       "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Train commute 30-40mints from doorstep to office desk.",
       "notes": "Wanna build more muscle by doing more gym and eat more. Enjoy watching youtube videos, join hackathon, build tools and love pet. Got 5 pets at home."
-    }
+    }, 
+    {
+      "id": "chiyu",
+      "name": "ChiYu",
+      "role": "Researcher, Linktal",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Working remotely in Penang. Doing a very good job.",
+      "notes": "Together with Wallace, just have the extension working contract with Linktal"
+    }, 
   ]
 }
