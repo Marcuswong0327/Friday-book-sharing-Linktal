@@ -559,6 +559,37 @@ def chat_reply(
     raise RuntimeError("All API keys failed. " + " | ".join(errors))
 
 
+def process_chat_turn(
+    user_text: str,
+    *,
+    goal: str,
+    anchor: str,
+    obstacle: str,
+    plan: dict,
+    profile: dict | None,
+) -> None:
+    """Append a user message, call the coach, and show both bubbles."""
+    st.session_state.chat_messages.append({"role": "user", "content": user_text})
+    with st.chat_message("user"):
+        st.markdown(user_text)
+
+    with st.chat_message("assistant"):
+        with st.spinner("Coach is thinking…"):
+            try:
+                history = [
+                    {"role": m["role"], "content": m["content"]}
+                    for m in st.session_state.chat_messages
+                    if m["role"] in ("user", "assistant")
+                ]
+                reply = chat_reply(
+                    goal, anchor, obstacle, plan, history, profile
+                )
+            except Exception as exc:  # noqa: BLE001
+                reply = f"Sorry, I couldn't reply just now: {exc}"
+            st.markdown(reply)
+    st.session_state.chat_messages.append({"role": "assistant", "content": reply})
+
+
 def reset_chat(plan: dict, profile: dict | None = None) -> None:
     stack = plan.get("habit_stack") or "your habit stack"
     name = (profile or {}).get("name") or "there"
@@ -1117,35 +1148,30 @@ def main() -> None:
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
+        if st.button(
+            "Tell me what you know about me.",
+            key="know_me_btn",
+            use_container_width=True,
+            type="primary",
+        ):
+            process_chat_turn(
+                "Tell me what you know about me.",
+                goal=inputs["goal"],
+                anchor=inputs["anchor"],
+                obstacle=inputs["obstacle"],
+                plan=plan,
+                profile=session_profile,
+            )
+
         user_prompt = st.chat_input(f"Ask {person_name}'s Atomic Habits coach…")
         if user_prompt:
-            st.session_state.chat_messages.append(
-                {"role": "user", "content": user_prompt}
-            )
-            with st.chat_message("user"):
-                st.markdown(user_prompt)
-
-            with st.chat_message("assistant"):
-                with st.spinner("Coach is thinking…"):
-                    try:
-                        history = [
-                            {"role": m["role"], "content": m["content"]}
-                            for m in st.session_state.chat_messages
-                            if m["role"] in ("user", "assistant")
-                        ]
-                        reply = chat_reply(
-                            inputs["goal"],
-                            inputs["anchor"],
-                            inputs["obstacle"],
-                            plan,
-                            history,
-                            session_profile,
-                        )
-                    except Exception as exc:  # noqa: BLE001
-                        reply = f"Sorry, I couldn't reply just now: {exc}"
-                    st.markdown(reply)
-            st.session_state.chat_messages.append(
-                {"role": "assistant", "content": reply}
+            process_chat_turn(
+                user_prompt,
+                goal=inputs["goal"],
+                anchor=inputs["anchor"],
+                obstacle=inputs["obstacle"],
+                plan=plan,
+                profile=session_profile,
             )
 
 

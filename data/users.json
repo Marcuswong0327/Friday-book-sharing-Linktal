@@ -3,16 +3,16 @@
     {
       "id": "joshua",
       "name": "Joshua",
-      "role": "Senior Consultant, Linktal — aiming for promotion soon",
+      "role": "Senior Consultant, Linktal",
       "routine": "Drives Tesla from Subang Jaya to Ampang Park (Menara Binjai), about 30 minutes. Arrives office around 7:40–8:00am. Works 8am–4pm with lunch 11:30am–12:30pm. Always leaves on time at 4pm and drives Tesla home.",
-      "notes": "Currently controlling diet and exercising 3x per week — gym or swimming, one session per exercise day."
+      "notes": "Currently controlling diet and exercising everyday per week — His arm becomes bigger than Marcus's arm already."
     },
     {
       "id": "daniel",
       "name": "Daniel",
-      "role": "Senior Consultant, Linktal — manages 3 interns; capable and hardworking",
+      "role": "Senior Consultant, Linktal — manages 3 interns; capable and ambitious",
       "routine": "Takes LRT from Bangsar to Ampang Park; often wears earphones on the train. Works about 8am–4pm and sometimes overtime a bit. Goes home by LRT from Ampang Park.",
-      "notes": "Ambitious, eager to upskill. Funny and humorous. Gym background / bulkier build. Taking more leadership lately and quite busy. Often trains with Chen at Troika."
+      "notes": "Ambitious, eager to upskill. Funny and humorous. Gym background / bulkier build. Taking more leadership lately and quite busy. Often gym with Chen at Troika."
     },
     {
       "id": "kim",
@@ -66,9 +66,9 @@
     {
       "id": "weikeat",
       "name": "WeiKeat",
-      "role": "Part-time Consultant, Linktal (Daniel banking team)",
+      "role": "Consultant, Linktal (Daniel banking team)",
       "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Takes train to/from office.",
-      "notes": "Studies at UCSI; midterms done, finals then ~1 month semester break. Strong at badminton and conversation; reliable at work."
+      "notes": "Likes to drink expresso with ice cube. Studies at UCSI; midterms done, finals then ~1 month semester break. Strong at badminton and conversation; reliable at work."
     },
     {
       "id": "xing",
