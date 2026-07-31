@@ -23,6 +23,11 @@ PORTRAIT_BY_USER_ID = {
     "daniel": "daniel.png",
     "woanru": "woanru.png",
     "karen": "karen.png",
+    "yoga": "yoga.png",
+    "shermaine": "shermaine.png",
+    "chen": "chen.png",
+    "weikeat": "weikeat.png",
+    "huiting": "huiting.png",
 }
 
 
