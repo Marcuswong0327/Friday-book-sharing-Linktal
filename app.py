@@ -12,7 +12,20 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 from pdf_report import build_pdf
-from prompt import SYSTEM_PROMPT, build_user_prompt
+from habit_prompts import SYSTEM_PROMPT, build_chat_system_prompt, build_user_prompt
+from users_store import (
+    delete_user,
+    get_user,
+    load_users,
+    upsert_user,
+    user_label,
+)
+
+
+def user_display_role(user: dict) -> str:
+    """Role text for UI captions (kept in app.py to avoid stale Streamlit imports)."""
+    role = (user.get("role") or "").strip()
+    return role if role else "Linktal teammate"
 
 load_dotenv()
 
@@ -24,7 +37,6 @@ HABIT_SUGGESTIONS = [
     "Stop scrolling in bed",
     "Sleep earlier",
     "Eat healthier",
-    "Type my own...",
 ]
 
 ANCHORS = [
@@ -34,7 +46,6 @@ ANCHORS = [
     "Brush my teeth",
     "Finish lunch",
     "Put my phone on charge",
-    "Type my own...",
 ]
 
 OBSTACLES = [
@@ -43,20 +54,41 @@ OBSTACLES = [
     "Too tired",
     "No motivation",
     "Environment distractions",
-    "Type my own...",
 ]
 
-CUSTOM_OPTION = "Type my own..."
+
+def _sync_multi_to_text(choice_key: str, text_key: str) -> None:
+    """Write multi-select choices into the editable text box below."""
+    selected = st.session_state.get(choice_key) or []
+    st.session_state[text_key] = ", ".join(selected)
 
 
-def resolve_field(choice: str, custom: str) -> str:
-    """Prefer custom text when provided; otherwise use dropdown (unless 'Type my own')."""
-    custom = (custom or "").strip()
-    if custom:
-        return custom
-    if choice == CUSTOM_OPTION:
-        return ""
-    return choice
+def combine_for_ai(selected: list[str], free_text: str) -> str:
+    """Merge multi-select + free text so both are fed to the model."""
+    picks = [s.strip() for s in (selected or []) if s and str(s).strip()]
+    notes = (free_text or "").strip()
+    joined = ", ".join(picks)
+
+    if picks and notes:
+        if notes == joined:
+            return joined
+        # Avoid duplicating if notes already starts with the joined picks
+        if notes.startswith(joined):
+            return notes
+        return f"Selections: {joined}. Extra notes: {notes}"
+    if notes:
+        return notes
+    return joined
+
+
+def _ensure_field_defaults() -> None:
+    # Reset legacy single-select string values to multi-select lists
+    for key in ("goal_choice", "anchor_choice", "obstacle_choice"):
+        if key not in st.session_state or not isinstance(st.session_state[key], list):
+            st.session_state[key] = []
+    for key in ("goal_text", "anchor_text", "obstacle_text"):
+        if key not in st.session_state or not isinstance(st.session_state[key], str):
+            st.session_state[key] = ""
 
 
 LINKTAL_CSS = """
@@ -238,21 +270,17 @@ div[data-testid="stSidebarNav"] { display: none; }
   margin-bottom: 0.35rem;
 }
 
-div[data-testid="stForm"] {
-  background: #ffffff;
-  border: 1px solid var(--ah-border);
-  border-radius: 8px;
-  padding: 1.2rem 1.25rem 1.05rem 1.25rem !important;
+/* Bordered question card */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+  background: #ffffff !important;
+  border: 1px solid var(--ah-border) !important;
+  border-radius: 8px !important;
+  padding: 0.35rem 0.5rem 0.6rem 0.5rem !important;
 }
 
-div[data-testid="stForm"] .stTextInput > div > div,
-div[data-testid="stForm"] .stSelectbox > div > div,
-div[data-testid="stForm"] .stTextArea > div > div {
-  min-height: 44px !important;
-}
-div[data-testid="stForm"] input,
-div[data-testid="stForm"] textarea,
-div[data-testid="stForm"] [data-baseweb="select"] > div {
+div[data-testid="stVerticalBlockBorderWrapper"] input,
+div[data-testid="stVerticalBlockBorderWrapper"] textarea,
+div[data-testid="stVerticalBlockBorderWrapper"] [data-baseweb="select"] > div {
   min-height: 44px !important;
   background-color: #ffffff !important;
   color: var(--ah-text) !important;
@@ -261,24 +289,69 @@ div[data-testid="stForm"] [data-baseweb="select"] > div {
   font-size: 0.95rem !important;
   box-shadow: none !important;
 }
-div[data-testid="stForm"] textarea {
+div[data-testid="stVerticalBlockBorderWrapper"] textarea {
   min-height: 72px !important;
   line-height: 1.4 !important;
 }
-div[data-testid="stForm"] input:focus,
-div[data-testid="stForm"] textarea:focus,
-div[data-testid="stForm"] [data-baseweb="select"] > div:focus-within {
+div[data-testid="stVerticalBlockBorderWrapper"] input:focus,
+div[data-testid="stVerticalBlockBorderWrapper"] textarea:focus,
+div[data-testid="stVerticalBlockBorderWrapper"] [data-baseweb="select"] > div:focus-within {
   border-color: var(--ah-purple) !important;
   box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.15) !important;
 }
-div[data-testid="stForm"] label,
-div[data-testid="stForm"] [data-testid="stWidgetLabel"] p {
-  font-size: 0.9rem !important;
-  font-weight: 600 !important;
-  color: #374151 !important;
+
+.q-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0.85rem 0 0.4rem 0;
 }
-div[data-testid="stForm"] [data-testid="stVerticalBlock"] {
-  gap: 0.55rem !important;
+.q-title:first-child { margin-top: 0.25rem; }
+.chat-wrap {
+  margin-top: 0.5rem;
+}
+div[data-testid="stChatMessage"] {
+  background: #ffffff !important;
+  border: 1px solid var(--ah-border) !important;
+  border-radius: 8px !important;
+  padding: 0.5rem 0.65rem !important;
+  margin-bottom: 0.5rem !important;
+}
+div[data-testid="stChatMessage"] p,
+div[data-testid="stChatMessage"] span,
+div[data-testid="stChatMessage"] li,
+div[data-testid="stChatMessage"] div,
+div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"],
+div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] * {
+  color: #111827 !important;
+}
+div[data-testid="stChatMessage"] strong,
+div[data-testid="stChatMessage"] b {
+  color: #111827 !important;
+  font-weight: 700 !important;
+}
+/* Chat input — readable on light UI */
+[data-testid="stChatInput"] {
+  background: #f9fafb !important;
+  border-top: 1px solid var(--ah-border) !important;
+}
+[data-testid="stChatInput"] textarea,
+[data-testid="stChatInput"] input {
+  color: #111827 !important;
+  background: #ffffff !important;
+  caret-color: #111827 !important;
+}
+[data-testid="stChatInput"] textarea::placeholder {
+  color: #9ca3af !important;
+}
+
+.pdf-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin: 0.35rem 0 0.75rem 0;
 }
 
 .stButton > button,
@@ -394,7 +467,13 @@ def parse_plan_json(raw: str) -> dict:
     return json.loads(text)
 
 
-def _call_model(api_key: str, goal: str, anchor: str, obstacle: str) -> dict:
+def _call_model(
+    api_key: str,
+    goal: str,
+    anchor: str,
+    obstacle: str,
+    profile: dict | None = None,
+) -> dict:
     client = make_client(api_key)
     response = client.chat.completions.create(
         model=resolve_model(api_key),
@@ -402,14 +481,22 @@ def _call_model(api_key: str, goal: str, anchor: str, obstacle: str) -> dict:
         response_format={"type": "json_object"},
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": build_user_prompt(goal, anchor, obstacle)},
+            {
+                "role": "user",
+                "content": build_user_prompt(goal, anchor, obstacle, profile),
+            },
         ],
     )
     content = response.choices[0].message.content or "{}"
     return parse_plan_json(content)
 
 
-def generate_plan(goal: str, anchor: str, obstacle: str) -> dict:
+def generate_plan(
+    goal: str,
+    anchor: str,
+    obstacle: str,
+    profile: dict | None = None,
+) -> dict:
     keys = api_keys_in_order()
     if not keys:
         raise RuntimeError(
@@ -418,7 +505,7 @@ def generate_plan(goal: str, anchor: str, obstacle: str) -> dict:
     errors: list[str] = []
     for i, key in enumerate(keys):
         try:
-            return _call_model(key, goal, anchor, obstacle)
+            return _call_model(key, goal, anchor, obstacle, profile)
         except Exception as exc:  # noqa: BLE001 — try next key
             label = "primary" if i == 0 else "fallback"
             errors.append(f"{label}: {exc}")
@@ -426,6 +513,83 @@ def generate_plan(goal: str, anchor: str, obstacle: str) -> dict:
     raise RuntimeError(
         "All API keys failed. " + " | ".join(errors)
     )
+
+
+def _call_chat(
+    api_key: str,
+    system_prompt: str,
+    history: list[dict[str, str]],
+) -> str:
+    client = make_client(api_key)
+    messages = [{"role": "system", "content": system_prompt}, *history]
+    response = client.chat.completions.create(
+        model=resolve_model(api_key),
+        temperature=0.7,
+        messages=messages,
+    )
+    return (response.choices[0].message.content or "").strip()
+
+
+def chat_reply(
+    goal: str,
+    anchor: str,
+    obstacle: str,
+    plan: dict,
+    history: list[dict[str, str]],
+    profile: dict | None = None,
+) -> str:
+    keys = api_keys_in_order()
+    if not keys:
+        raise RuntimeError(
+            "OPENAI_API_KEY is not set. Add it to .env or Streamlit secrets."
+        )
+    system_prompt = build_chat_system_prompt(
+        goal, anchor, obstacle, plan, profile
+    )
+    # Keep recent turns to control tokens (system + last N messages)
+    trimmed = history[-16:]
+    errors: list[str] = []
+    for i, key in enumerate(keys):
+        try:
+            return _call_chat(key, system_prompt, trimmed)
+        except Exception as exc:  # noqa: BLE001
+            label = "primary" if i == 0 else "fallback"
+            errors.append(f"{label}: {exc}")
+            continue
+    raise RuntimeError("All API keys failed. " + " | ".join(errors))
+
+
+def reset_chat(plan: dict, profile: dict | None = None) -> None:
+    stack = plan.get("habit_stack") or "your habit stack"
+    name = (profile or {}).get("name") or "there"
+    st.session_state.chat_messages = [
+        {
+            "role": "assistant",
+            "content": (
+                f"Hi **{name}** — your plan is ready and locked to your profile. "
+                f"Ask me anything about sticking with **{stack}**, busy days, "
+                "or adjusting the 2-minute rule."
+            ),
+        }
+    ]
+
+
+def _on_who_change() -> None:
+    """Switching identity clears the previous person's plan/chat/PDF."""
+    new_id = st.session_state.get("who_user_id")
+    if new_id == SELECT_PLACEHOLDER:
+        new_id = None
+    prev = st.session_state.get("active_user_id")
+    if new_id != prev:
+        st.session_state.active_user_id = new_id
+        st.session_state.plan = None
+        st.session_state.last_inputs = None
+        st.session_state.chat_messages = []
+        st.session_state.pdf_bytes = None
+        st.session_state.pdf_ready = False
+
+
+SELECT_PLACEHOLDER = "— Select your name —"
 
 
 def law_meta(mode: str) -> list[tuple[str, str, str]]:
@@ -445,6 +609,93 @@ def law_meta(mode: str) -> list[tuple[str, str, str]]:
     ]
 
 
+def render_admin_page() -> None:
+    st.markdown('<p class="page-title">Admin · User knowledge base</p>', unsafe_allow_html=True)
+    st.markdown(
+        '<p class="page-pitch">Enter each attendee one by one. Their routine is stored in '
+        "<code>data/users.json</code> and fed to the AI when they pick their name.</p>",
+        unsafe_allow_html=True,
+    )
+
+    users = load_users()
+    st.caption(f"{len(users)} profile(s) saved")
+
+    with st.container(border=True):
+        st.markdown("**Add or update a person**")
+        edit_options = ["— New person —"] + [user_label(u) for u in users]
+        edit_pick = st.selectbox("Edit existing", edit_options, key="admin_edit_pick")
+        editing: dict | None = None
+        if edit_pick != "— New person —":
+            editing = next(
+                (u for u in users if user_label(u) == edit_pick),
+                None,
+            )
+
+        default_name = editing.get("name", "") if editing else ""
+        default_role = editing.get("role", "") if editing else ""
+        default_routine = editing.get("routine", "") if editing else ""
+        default_notes = editing.get("notes", "") if editing else ""
+
+        form_key = editing["id"] if editing else "new"
+        name = st.text_input("Name", value=default_name, key=f"admin_name_{form_key}")
+        role = st.text_input(
+            "Role / team",
+            value=default_role,
+            placeholder="e.g. Engineer, Sales, Manager",
+            key=f"admin_role_{form_key}",
+        )
+        routine = st.text_area(
+            "Daily routine (knowledge base)",
+            value=default_routine,
+            height=120,
+            placeholder="e.g. Wake 7am, coffee, WFH desk by 9, lunch 1pm, gym Mon/Wed…",
+            key=f"admin_routine_{form_key}",
+        )
+        notes = st.text_area(
+            "Extra notes (optional)",
+            value=default_notes,
+            height=80,
+            placeholder="Personality, constraints, what usually derails them…",
+            key=f"admin_notes_{form_key}",
+        )
+
+        save_col, del_col = st.columns(2)
+        with save_col:
+            if st.button("Save profile", type="primary", use_container_width=True):
+                try:
+                    saved = upsert_user(
+                        name=name,
+                        role=role,
+                        routine=routine,
+                        notes=notes,
+                        user_id=editing["id"] if editing else None,
+                    )
+                    st.success(f"Saved: {saved['name']} (`{saved['id']}`)")
+                    st.rerun()
+                except ValueError as exc:
+                    st.error(str(exc))
+        with del_col:
+            if editing and st.button(
+                "Delete this profile",
+                use_container_width=True,
+                key="admin_delete",
+            ):
+                delete_user(editing["id"])
+                st.warning(f"Deleted {editing.get('name')}")
+                st.rerun()
+
+    if users:
+        st.markdown("**Current roster**")
+        for u in users:
+            with st.expander(user_label(u)):
+                st.write(f"**ID:** `{u.get('id')}`")
+                st.write(f"**Role:** {user_display_role(u)}")
+                st.write(f"**Routine:** {u.get('routine') or '—'}")
+                st.write(f"**Notes:** {u.get('notes') or '—'}")
+    else:
+        st.info("No profiles yet — add your first attendee above.")
+
+
 def main() -> None:
     st.set_page_config(
         page_title="Atomic Habits Coach",
@@ -460,6 +711,10 @@ def main() -> None:
         st.session_state.last_inputs = None
     if "view" not in st.session_state:
         st.session_state.view = "generate"
+    if "chat_messages" not in st.session_state:
+        st.session_state.chat_messages = []
+    if "active_user_id" not in st.session_state:
+        st.session_state.active_user_id = None
 
     with st.sidebar:
         st.markdown(
@@ -467,23 +722,38 @@ def main() -> None:
             '<p class="brand-sub">Book Sharing Tools</p>',
             unsafe_allow_html=True,
         )
+        nav_options = ["Generate Plan", "Admin", "About"]
+        view_map = {
+            "Generate Plan": "generate",
+            "Admin": "admin",
+            "About": "about",
+        }
+        reverse_map = {v: k for k, v in view_map.items()}
+        current_label = reverse_map.get(st.session_state.view, "Generate Plan")
         view = st.radio(
             "Navigation",
-            options=["Generate Plan", "About"],
-            index=0 if st.session_state.view == "generate" else 1,
+            options=nav_options,
+            index=nav_options.index(current_label),
             label_visibility="collapsed",
         )
-        st.session_state.view = "generate" if view == "Generate Plan" else "about"
+        st.session_state.view = view_map[view]
+        sub = {
+            "Generate Plan": "30-second habit builder",
+            "Admin": "Enter attendee routines",
+            "About": "Four Laws cheat sheet",
+        }[view]
         st.markdown(
             '<div class="nav-item active" style="margin-top:0.5rem;">'
-            f'{view}<span class="sub">'
-            f'{"30-second habit builder" if view == "Generate Plan" else "Four Laws cheat sheet"}'
-            "</span></div>",
+            f"{view}<span class=\"sub\">{sub}</span></div>",
             unsafe_allow_html=True,
         )
         st.markdown("---")
         st.caption("Internal · Friday book sharing")
         st.caption("Inspired by James Clear")
+
+    if st.session_state.view == "admin":
+        render_admin_page()
+        return
 
     if st.session_state.view == "about":
         st.markdown('<p class="page-title">About</p>', unsafe_allow_html=True)
@@ -532,93 +802,203 @@ def main() -> None:
         return
 
     # --- Generate view ---
+    _ensure_field_defaults()
+
     st.markdown(
-        '<span class="step-hint">3 quick questions · under 30 seconds</span>',
+        '<span class="step-hint">Pick your name · 3 questions · personal plan + chat</span>',
         unsafe_allow_html=True,
     )
     st.markdown('<p class="page-title">Your Habit Plan</p>', unsafe_allow_html=True)
     st.markdown(
-        '<p class="page-pitch">Answer three questions. Get a 4-law action plan you can download as a PDF.</p>',
+        '<p class="page-pitch">Select your name first so the AI uses only your routine. '
+        "Then answer three questions for your plan, PDF, and coach chat.</p>",
         unsafe_allow_html=True,
     )
 
-    with st.form("habit_form", clear_on_submit=False):
-        st.markdown("**1. What do you want to build or break?**")
-        goal_choice = st.selectbox(
-            "Suggested habits",
-            HABIT_SUGGESTIONS,
-            label_visibility="collapsed",
-            key="goal_choice",
-        )
-        goal_custom = st.text_area(
-            "Or type your own",
-            placeholder="e.g. Stop checking email after 9pm",
-            height=68,
-            label_visibility="collapsed",
-            key="goal_custom",
-        )
-        st.caption("Pick a suggestion above, or type your own habit in the box.")
+    roster = load_users()
+    id_to_user = {u["id"]: u for u in roster}
+    who_options = [SELECT_PLACEHOLDER] + [u["id"] for u in roster]
 
-        st.markdown("**2. What is something that you do every day already?**")
-        anchor_choice = st.selectbox(
-            "Daily anchors",
-            ANCHORS,
-            label_visibility="collapsed",
-            key="anchor_choice",
+    with st.container(border=True):
+        st.markdown(
+            '<p class="q-title">Who are you?</p>',
+            unsafe_allow_html=True,
         )
-        anchor_custom = st.text_area(
-            "Custom daily anchor",
-            placeholder="e.g. Pour my first cup of tea",
-            height=68,
-            label_visibility="collapsed",
-            key="anchor_custom",
+        st.markdown(
+            '<p class="field-label">Required — loads your personal knowledge base for AI</p>',
+            unsafe_allow_html=True,
         )
-        st.caption("Choose from the list, or write your own routine.")
+        who_id = st.selectbox(
+            "Who are you?",
+            who_options,
+            key="who_user_id",
+            label_visibility="collapsed",
+            format_func=lambda i: (
+                SELECT_PLACEHOLDER
+                if i == SELECT_PLACEHOLDER
+                else id_to_user.get(i, {}).get("name", i)
+            ),
+            on_change=_on_who_change,
+        )
+
+        selected_profile = None
+        if who_id and who_id != SELECT_PLACEHOLDER:
+            selected_profile = id_to_user.get(who_id) or get_user(who_id)
+            st.session_state.active_user_id = who_id
+            if selected_profile:
+                st.markdown(
+                    f'<div class="success-bar">Signed in as '
+                    f"<strong>{escape(selected_profile.get('name', ''))}</strong> — "
+                    f"plan, PDF, and chat will use only your profile</div>",
+                    unsafe_allow_html=True,
+                )
+                st.caption(
+                    f"**{user_display_role(selected_profile)}** · "
+                    f"{(selected_profile.get('routine') or '')[:200]}"
+                    f"{'…' if len(selected_profile.get('routine') or '') > 200 else ''}"
+                )
+        else:
+            st.warning("Select your name to personalize the AI coach.")
+            if not roster:
+                st.caption("No profiles loaded — check `data/users.json` or use Admin.")
 
         st.markdown(
-            "**3. What stops you from building or maintaining a good habit?**"
+            '<p class="q-title">1. What do you want to build or break?</p>',
+            unsafe_allow_html=True,
         )
-        obstacle_choice = st.selectbox(
-            "Obstacles",
-            OBSTACLES,
+        st.markdown(
+            '<p class="field-label">Select one or more suggestions</p>',
+            unsafe_allow_html=True,
+        )
+        st.multiselect(
+            "Habit suggestions",
+            HABIT_SUGGESTIONS,
+            key="goal_choice",
             label_visibility="collapsed",
-            key="obstacle_choice",
+            placeholder="Pick habits…",
+            on_change=_sync_multi_to_text,
+            args=("goal_choice", "goal_text"),
         )
-        obstacle_custom = st.text_area(
-            "Custom obstacle",
-            placeholder="e.g. Kids wake up early / Meetings run late",
-            height=68,
+        st.markdown(
+            '<p class="field-label">Your answer (editable — add free text anytime)</p>',
+            unsafe_allow_html=True,
+        )
+        st.text_area(
+            "Habit answer",
+            key="goal_text",
+            height=80,
+            placeholder="Selections appear here. Edit or add your own details…",
             label_visibility="collapsed",
-            key="obstacle_custom",
         )
-        st.caption("Pick a common blocker, or describe yours.")
 
-        submitted = st.form_submit_button(
+        st.markdown(
+            '<p class="q-title">2. What is something that you do every day already? / '
+            "Briefly explain your daily / weekends routines so that I can help you "
+            "build or break habit better.</p>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<p class="field-label">Select one or more suggestions</p>',
+            unsafe_allow_html=True,
+        )
+        st.multiselect(
+            "Daily anchor suggestions",
+            ANCHORS,
+            key="anchor_choice",
+            label_visibility="collapsed",
+            placeholder="Pick daily routines…",
+            on_change=_sync_multi_to_text,
+            args=("anchor_choice", "anchor_text"),
+        )
+        st.markdown(
+            '<p class="field-label">Your answer (editable — add free text anytime)</p>',
+            unsafe_allow_html=True,
+        )
+        st.text_area(
+            "Anchor answer",
+            key="anchor_text",
+            height=80,
+            placeholder="Selections appear here. Edit or add your own details…",
+            label_visibility="collapsed",
+        )
+
+        st.markdown(
+            '<p class="q-title">3. What stops you from building or maintaining a good habit?</p>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            '<p class="field-label">Select one or more suggestions</p>',
+            unsafe_allow_html=True,
+        )
+        st.multiselect(
+            "Obstacle suggestions",
+            OBSTACLES,
+            key="obstacle_choice",
+            label_visibility="collapsed",
+            placeholder="Pick blockers…",
+            on_change=_sync_multi_to_text,
+            args=("obstacle_choice", "obstacle_text"),
+        )
+        st.markdown(
+            '<p class="field-label">Your answer (editable — add free text anytime)</p>',
+            unsafe_allow_html=True,
+        )
+        st.text_area(
+            "Obstacle answer",
+            key="obstacle_text",
+            height=80,
+            placeholder="Selections appear here. Edit or add your own details…",
+            label_visibility="collapsed",
+        )
+
+        submitted = st.button(
             "Generate my plan →",
             type="primary",
             use_container_width=True,
+            key="generate_btn",
         )
 
     if submitted:
-        goal = resolve_field(goal_choice, goal_custom)
-        anchor = resolve_field(anchor_choice, anchor_custom)
-        obstacle = resolve_field(obstacle_choice, obstacle_custom)
-        if not goal:
-            st.error("Please choose or type what you want to build or break.")
+        goal = combine_for_ai(
+            st.session_state.get("goal_choice") or [],
+            st.session_state.get("goal_text") or "",
+        )
+        anchor = combine_for_ai(
+            st.session_state.get("anchor_choice") or [],
+            st.session_state.get("anchor_text") or "",
+        )
+        obstacle = combine_for_ai(
+            st.session_state.get("obstacle_choice") or [],
+            st.session_state.get("obstacle_text") or "",
+        )
+        if not selected_profile:
+            st.error("Please select your name first so the coach can personalize for you.")
+        elif not goal:
+            st.error("Please select or type what you want to build or break.")
         elif not anchor:
-            st.error("Please choose or type something you already do every day.")
+            st.error("Please select or type something you already do every day.")
         elif not obstacle:
-            st.error("Please choose or type what usually stops you.")
+            st.error("Please select or type what usually stops you.")
         else:
-            with st.spinner("Building your 4-law plan..."):
+            with st.spinner(
+                f"Building {selected_profile.get('name')}'s 4-law plan..."
+            ):
                 try:
-                    plan = generate_plan(goal, anchor, obstacle)
+                    plan = generate_plan(
+                        goal, anchor, obstacle, selected_profile
+                    )
                     st.session_state.plan = plan
+                    st.session_state.active_user_id = selected_profile.get("id")
                     st.session_state.last_inputs = {
                         "goal": goal,
                         "anchor": anchor,
                         "obstacle": obstacle,
+                        "user_id": selected_profile.get("id"),
+                        "profile": dict(selected_profile),
                     }
+                    reset_chat(plan, selected_profile)
+                    st.session_state.pdf_bytes = None
+                    st.session_state.pdf_ready = False
                 except Exception as exc:  # noqa: BLE001 — show user-friendly error
                     st.error(f"Could not generate plan: {exc}")
                     st.session_state.plan = None
@@ -627,9 +1007,13 @@ def main() -> None:
     inputs = st.session_state.last_inputs
 
     if plan and inputs:
+        session_profile = inputs.get("profile") or (
+            get_user(inputs["user_id"]) if inputs.get("user_id") else None
+        )
+        person_name = (session_profile or {}).get("name") or "You"
         mode = (plan.get("mode") or "build").lower()
         st.markdown(
-            '<div class="success-bar">✓ Your personalized plan is ready</div>',
+            f'<div class="success-bar">✓ {escape(person_name)}\'s personalized plan is ready</div>',
             unsafe_allow_html=True,
         )
 
@@ -668,18 +1052,101 @@ def main() -> None:
             unsafe_allow_html=True,
         )
 
-        try:
-            pdf_bytes = build_pdf(inputs["goal"], inputs["anchor"], plan)
+        if "pdf_bytes" not in st.session_state:
+            st.session_state.pdf_bytes = None
+        if "pdf_ready" not in st.session_state:
+            st.session_state.pdf_ready = False
+
+        if st.button(
+            "Download PDF →",
+            type="primary",
+            use_container_width=True,
+            key="prep_pdf_btn",
+        ):
+            with st.spinner(f"Preparing {person_name}'s PDF…"):
+                try:
+                    st.session_state.pdf_bytes = build_pdf(
+                        inputs["goal"],
+                        inputs["anchor"],
+                        plan,
+                        person_name=person_name,
+                    )
+                    st.session_state.pdf_ready = True
+                except Exception as exc:  # noqa: BLE001
+                    st.session_state.pdf_ready = False
+                    st.session_state.pdf_bytes = None
+                    st.warning(f"PDF could not be generated: {exc}")
+
+        if st.session_state.pdf_ready and st.session_state.pdf_bytes:
+            st.success("PDF ready — tap below to save it to your device.")
+            safe_name = "".join(
+                c if c.isalnum() else "-" for c in person_name
+            ).strip("-") or "habit"
             st.download_button(
-                label="Download PDF →",
-                data=pdf_bytes,
-                file_name="atomic-habits-plan.pdf",
+                label="Save PDF to device →",
+                data=st.session_state.pdf_bytes,
+                file_name=f"atomic-habits-{safe_name}.pdf",
                 mime="application/pdf",
                 type="primary",
                 use_container_width=True,
+                key="save_pdf_btn",
             )
-        except Exception as exc:  # noqa: BLE001
-            st.warning(f"PDF could not be generated: {exc}")
+
+        # --- Follow-up coach chat ---
+        st.markdown("---")
+        st.markdown(
+            f'<p class="page-title" style="font-size:1.25rem;">Chat with {escape(person_name)}\'s coach</p>',
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            f'<p class="page-pitch">Private to <strong>{escape(person_name)}</strong> — '
+            "answers use only your profile, 3 questions, and this plan.</p>",
+            unsafe_allow_html=True,
+        )
+
+        if not st.session_state.chat_messages:
+            reset_chat(plan, session_profile)
+
+        _, clear_col = st.columns([4, 1])
+        with clear_col:
+            if st.button("Clear chat", key="clear_chat", use_container_width=True):
+                reset_chat(plan, session_profile)
+                st.rerun()
+
+        for msg in st.session_state.chat_messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
+
+        user_prompt = st.chat_input(f"Ask {person_name}'s Atomic Habits coach…")
+        if user_prompt:
+            st.session_state.chat_messages.append(
+                {"role": "user", "content": user_prompt}
+            )
+            with st.chat_message("user"):
+                st.markdown(user_prompt)
+
+            with st.chat_message("assistant"):
+                with st.spinner("Coach is thinking…"):
+                    try:
+                        history = [
+                            {"role": m["role"], "content": m["content"]}
+                            for m in st.session_state.chat_messages
+                            if m["role"] in ("user", "assistant")
+                        ]
+                        reply = chat_reply(
+                            inputs["goal"],
+                            inputs["anchor"],
+                            inputs["obstacle"],
+                            plan,
+                            history,
+                            session_profile,
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        reply = f"Sorry, I couldn't reply just now: {exc}"
+                    st.markdown(reply)
+            st.session_state.chat_messages.append(
+                {"role": "assistant", "content": reply}
+            )
 
 
 if __name__ == "__main__":

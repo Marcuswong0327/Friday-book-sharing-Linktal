@@ -80,14 +80,14 @@ docker run -p 8080:8080 -e OPENAI_API_KEY=sk-... atomic-habits-coach
 
 ## App flow
 
-1. **Goal** — habit to build or break  
-2. **Anchor** — daily routine for habit stacking  
-3. **Obstacle** — what usually stops them  
-
-AI returns Cue / Craving / Response / Reward tips, a 2-minute version, habit stack, and one environment tip. PDF adds a static cheat sheet (habit loop, plateau, Clear quote).
+1. **Admin** (sidebar) — enter each attendee’s name, role, daily routine, notes → saved to `data/users.json`
+2. Attendee picks **Who are you?** then answers the 3 habit questions  
+3. AI returns Cue / Craving / Response / Reward tips using their saved routine + answers  
+4. Download PDF + continue in coach chat (also uses their profile)
 
 ## Notes
 
 - No login — shared QR link for ~20 internal attendees  
 - Book concepts live in the system prompt only (no full-book upload)  
+- Profiles: edit via **Admin** or directly in [`data/users.json`](data/users.json). Commit the file before Cloud Run deploy so profiles persist in the image.
 - Linktal logo is optional and not required

@@ -1,0 +1,137 @@
+{
+  "users": [
+    {
+      "id": "joshua",
+      "name": "Joshua",
+      "role": "Senior Consultant, Linktal — aiming for promotion soon",
+      "routine": "Drives Tesla from Subang Jaya to Ampang Park (Menara Binjai), about 30 minutes. Arrives office around 7:40–8:00am. Works 8am–4pm with lunch 11:30am–12:30pm. Always leaves on time at 4pm and drives Tesla home.",
+      "notes": "Currently controlling diet and exercising 3x per week — gym or swimming, one session per exercise day."
+    },
+    {
+      "id": "daniel",
+      "name": "Daniel",
+      "role": "Senior Consultant, Linktal — manages 3 interns; capable and hardworking",
+      "routine": "Takes LRT from Bangsar to Ampang Park; often wears earphones on the train. Works about 8am–4pm and sometimes overtime a bit. Goes home by LRT from Ampang Park.",
+      "notes": "Ambitious, eager to upskill. Funny and humorous. Gym background / bulkier build. Taking more leadership lately and quite busy. Often trains with Chen at Troika."
+    },
+    {
+      "id": "kim",
+      "name": "Kim",
+      "role": "Consultant, Linktal",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Takes train then drives home.",
+      "notes": "Keeps body fit with regular exercise and diet care. Often brings home-cooked food to the office."
+    },
+    {
+      "id": "anderson",
+      "name": "Anderson",
+      "role": "Consultant, Linktal",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Takes MRT Yellow Line from KLCC Persiaran; about 20 minutes home.",
+      "notes": "Often brings healthy home-cooked food — plain taste, very health-focused meals."
+    },
+    {
+      "id": "woanru",
+      "name": "Woanru",
+      "role": "Senior Consultant, Linktal",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Commutes by LRT to office and home.",
+      "notes": "Has a personal trainer. Sometimes swims with Karen every Tuesday at Troika. Brings home-cooked food. Friendly, easy-going, fun to talk to."
+    },
+    {
+      "id": "yoga",
+      "name": "Yoga",
+      "role": "Senior Consultant, Linktal. Getting back to Malaysia soon in 2 weeks! ",
+      "routine": "Currently works from Jakarta, Indonesia. Typically aligned to 8am–4pm with lunch 11:30am–12:30pm (MY time context for team).",
+      "notes": "Very dedicated person, always train hard in badminton in Indonesia. Very hardworking; sometimes online late at night."
+    },
+    {
+      "id": "mander",
+      "name": "Mander",
+      "role": "Consultant, Linktal",
+      "routine": "Typically 8am–4pm with lunch 11:30am–12:30pm. Currently working from home while recovering from shoulder surgery.",
+      "notes": "In recovery mode after broken-shoulder surgery — keep habit plans gentle and recovery-aware."
+    },
+    {
+      "id": "chen",
+      "name": "Chen",
+      "role": "Recruitment Manager & Director / Founder, Linktal",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm but often overtime as founder. Lives about 5 minutes' walk from the office. Recently flew MY→Australia Wed for Seek event Thu, back Friday.",
+      "notes": "Started gym with Daniel at Troika (Daniel as informal trainer). Had Influenza A last month — recovered; focusing more on diet and healthy lifestyle for himself and family. Married to Karen."
+    },
+    {
+      "id": "wallace",
+      "name": "Wallace",
+      "role": "Researcher, Linktal",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Sometimes drives Chen's car for maintenance. Choosing university courses; full scholarship at UTAR Setapak.",
+      "notes": "Loves luxury cars; inviting colleagues to a Porsche show in September. Former barista — knows coffee. Strong at finding clients and candidates for consultants."
+    },
+    {
+      "id": "weikeat",
+      "name": "WeiKeat",
+      "role": "Part-time Consultant, Linktal (Daniel banking team)",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Takes train to/from office.",
+      "notes": "Studies at UCSI; midterms done, finals then ~1 month semester break. Strong at badminton and conversation; reliable at work."
+    },
+    {
+      "id": "xing",
+      "name": "Xing",
+      "role": "Consultant, Linktal (Daniel banking team)",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Takes train daily. Badminton coaching on Saturdays at Taylor Lakeside as part-time job.",
+      "notes": "Excellent badminton coach. Internship ending around August."
+    },
+    {
+      "id": "zhaohao",
+      "name": "ZhaoHao",
+      "role": "Consultant, Linktal",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Train commute about 40–50 minutes one way. Lives in the same area as Eve.",
+      "notes": "Started gym at his condo. Hardworking, dedicated, strong performer."
+    },
+    {
+      "id": "yongying",
+      "name": "YongYing",
+      "role": "Graphic Design Intern, Linktal",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Currently dealing with sickness / sore throat.",
+      "notes": "Excellent graphic design — beautiful slides/PPT for the company; also designs clothing. Keep plans considerate of recovery when unwell."
+    },
+    {
+      "id": "huiting",
+      "name": "HuiTing",
+      "role": "Recruitment Consultant, Linktal",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Takes train then drives home.",
+      "notes": "Looks slim; hardworking and dedicated. More extrovert/confident overseas. Eats little — sometimes only 2 meals per day."
+    },
+    {
+      "id": "karen",
+      "name": "Karen",
+      "role": "Senior Consultant, Linktal — Chen's wife",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Makes delicious desserts for colleagues. Sometimes swims with Woanru on Tuesdays at Troika.",
+      "notes": "Careful with diet — zero to low sugar. Exercises and stays fit. Capable and approachable."
+    },
+    {
+      "id": "eve",
+      "name": "Eve",
+      "role": "Recruitment Consultant, Linktal (OG)",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Takes train daily; lives in the same place as ZhaoHao.",
+      "notes": "Zero to low sugar meals; takes supplements at her desk daily. Long-tenured OG teammate."
+    },
+    {
+      "id": "shermaine",
+      "name": "Shermaine",
+      "role": "Executive Assistant, Linktal",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm; normally works from home. Has a family with one young son.",
+      "notes": "Highly capable, reliable, and professional. Balances lifestyle and family well."
+    },
+    {
+      "id": "meiyee",
+      "name": "MeiYee",
+      "role": "Consultant, Linktal (joined ~4 days ago)",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Train commute nearly 1.5 hours each way (~3 hours daily).",
+      "notes": "From UKM; finished final exams. Political science background; once conversed with Tun Dr Mahathir. Fast learner; new joiner — keep onboarding-friendly."
+    },
+    {
+      "id": "marcus",
+      "name": "Marcus",
+      "role": "Software Developer, Linktal (joined 1 year)",
+      "routine": "Works 8am–4pm with lunch 11:30am–12:30pm. Train commute 30-40mints from doorstep to office desk.",
+      "notes": "Wanna build more muscle by doing more gym and eat more. Enjoy watching youtube videos, join hackathon, build tools and love pet. Got 5 pets at home."
+    }
+  ]
+}

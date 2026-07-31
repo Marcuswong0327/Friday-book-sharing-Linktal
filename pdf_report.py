@@ -44,7 +44,12 @@ def _safe(text: str) -> str:
     return out.encode("latin-1", "replace").decode("latin-1")
 
 
-def build_pdf(goal: str, anchor: str, plan: dict[str, Any]) -> bytes:
+def build_pdf(
+    goal: str,
+    anchor: str,
+    plan: dict[str, Any],
+    person_name: str | None = None,
+) -> bytes:
     pdf = HabitPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=False)
     pdf.add_page()
@@ -57,7 +62,10 @@ def build_pdf(goal: str, anchor: str, plan: dict[str, Any]) -> bytes:
 
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(*GRAY)
-    pdf.cell(page_w, 5, "Your personalized action plan", ln=True)
+    subtitle = "Your personalized action plan"
+    if person_name:
+        subtitle = f"Personalized for {_safe(person_name)}"
+    pdf.cell(page_w, 5, subtitle, ln=True)
     pdf.ln(2)
 
     # Goal box
