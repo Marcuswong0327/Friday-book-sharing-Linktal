@@ -1101,6 +1101,7 @@ def main() -> None:
                         inputs["anchor"],
                         plan,
                         person_name=person_name,
+                        user_id=inputs.get("user_id"),
                     )
                     st.session_state.pdf_ready = True
                 except Exception as exc:  # noqa: BLE001

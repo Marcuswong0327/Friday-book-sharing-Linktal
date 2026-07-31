@@ -14,6 +14,7 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 
 COPY app.py habit_prompts.py pdf_report.py users_store.py ./
 COPY data ./data
+COPY assets ./assets
 COPY .streamlit .streamlit
 
 # Cloud Run injects PORT (default 8080)

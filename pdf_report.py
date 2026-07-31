@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from fpdf import FPDF
@@ -12,7 +13,17 @@ DARK = (31, 41, 55)
 GRAY = (107, 114, 128)
 LIGHT_BG = (249, 250, 251)
 BORDER = (229, 231, 235)
-GREEN = (22, 163, 74)
+
+PORTRAITS_DIR = Path(__file__).resolve().parent / "assets" / "portraits"
+
+# user_id -> portrait filename
+PORTRAIT_BY_USER_ID = {
+    "kim": "kim.png",
+    "joshua": "joshua.png",
+    "daniel": "daniel.png",
+    "woanru": "woanru.png",
+    "karen": "karen.png",
+}
 
 
 class HabitPDF(FPDF):
@@ -44,29 +55,60 @@ def _safe(text: str) -> str:
     return out.encode("latin-1", "replace").decode("latin-1")
 
 
+def resolve_portrait_path(user_id: str | None) -> Path | None:
+    if not user_id:
+        return None
+    filename = PORTRAIT_BY_USER_ID.get(user_id.strip().lower())
+    if not filename:
+        return None
+    path = PORTRAITS_DIR / filename
+    return path if path.is_file() else None
+
+
 def build_pdf(
     goal: str,
     anchor: str,
     plan: dict[str, Any],
     person_name: str | None = None,
+    user_id: str | None = None,
 ) -> bytes:
     pdf = HabitPDF(orientation="P", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=False)
     pdf.add_page()
     page_w = pdf.w - pdf.l_margin - pdf.r_margin
 
-    # --- Title ---
+    portrait = resolve_portrait_path(user_id)
+    portrait_w = 32.0
+    title_w = page_w - (portrait_w + 6) if portrait else page_w
+
+    # --- Title (+ optional portrait top-right) ---
+    title_y = pdf.get_y()
     pdf.set_font("Helvetica", "B", 16)
     pdf.set_text_color(*PURPLE)
-    pdf.cell(page_w, 8, "Atomic Habits Coach", ln=True)
+    pdf.cell(title_w, 8, "Atomic Habits Coach", ln=True)
 
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(*GRAY)
     subtitle = "Your personalized action plan"
     if person_name:
         subtitle = f"Personalized for {_safe(person_name)}"
-    pdf.cell(page_w, 5, subtitle, ln=True)
-    pdf.ln(2)
+    pdf.cell(title_w, 5, subtitle, ln=True)
+
+    if portrait:
+        try:
+            pdf.image(
+                str(portrait),
+                x=pdf.l_margin + page_w - portrait_w,
+                y=title_y,
+                w=portrait_w,
+                h=portrait_w,
+            )
+            # Keep content below portrait if it would overlap
+            pdf.set_y(max(pdf.get_y() + 2, title_y + portrait_w + 3))
+        except Exception:
+            pdf.ln(2)
+    else:
+        pdf.ln(2)
 
     # Goal box
     pdf.set_fill_color(*LIGHT_BG)
